@@ -115,4 +115,45 @@ class Build : TampBuild
         .Description("Full CI pipeline.");
 
     Target Default => _ => _.DependsOn(nameof(Compile));
+
+    // ----- Sonar (TAM-17) -----
+
+    [NuGetPackage("dotnet-sonarscanner", Version = "10.4.1")]
+    readonly Tool SonarTool = null!;
+
+    static readonly Secret? SonarToken =
+        Environment.GetEnvironmentVariable("SONAR_TOKEN") is { Length: > 0 } v
+            ? new Secret("SonarQube token", v)
+            : null;
+
+    [Parameter("Sonar host URL", EnvironmentVariable = "SONAR_HOST_URL")]
+    readonly string SonarHostUrl = "https://sonar.brewingcoder.com";
+
+    [Parameter("Sonar project key")]
+    readonly string SonarProjectKey = "tamp-build_tamp-sonar";
+
+    Target SonarBegin => _ => _
+        .Description("Initialize the SonarScanner pre-build phase.")
+        .Before(nameof(Compile))
+        .Requires(() => SonarToken != null)
+        .Executes(() => Tamp.SonarScanner.V10.SonarScanner.Begin(SonarTool, s =>
+        {
+            s.SetProjectKey(SonarProjectKey);
+            s.SetHostUrl(SonarHostUrl);
+            s.SetToken(SonarToken!);
+            s.SetProperty("sonar.cs.vstest.reportsPaths", $"{(Artifacts / "test-results").Value}/**/*.trx");
+            s.SetProperty("sonar.exclusions", "**/bin/**,**/obj/**,artifacts/**,build/**,docs/**,samples/**");
+        }));
+
+    Target SonarEnd => _ => _
+        .Description("Finalize SonarScanner and submit results to the server.")
+        .DependsOn(nameof(Test))
+        .Requires(() => SonarToken != null)
+        .Executes(() => Tamp.SonarScanner.V10.SonarScanner.End(SonarTool, s => s.SetToken(SonarToken!)));
+
+    Target Sonar => _ => _
+        .TopLevel()
+        .DependsOn(nameof(SonarBegin), nameof(SonarEnd))
+        .Description("End-to-end Sonar scan: Begin (before Compile) → Compile → Test → End. Requires SONAR_TOKEN.");
+
 }
