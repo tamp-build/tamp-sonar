@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="README.md" />
+    <File Path="LICENSE" />
+    <File Path="MAINTAINERS.md" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+    <File Path=".gitignore" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Tamp.SonarScanner.V10/Tamp.SonarScanner.V10.csproj" />
+    <Project Path="src/Tamp.SonarScannerCli.V6/Tamp.SonarScannerCli.V6.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Tamp.SonarScanner.V10.Tests/Tamp.SonarScanner.V10.Tests.csproj" />
+    <Project Path="tests/Tamp.SonarScannerCli.V6.Tests/Tamp.SonarScannerCli.V6.Tests.csproj" />
+  </Folder>
+</Solution>
