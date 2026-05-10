@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup Label="Tamp core (used when TampCoreMode=package)">
-    <PackageVersion Include="Tamp.Core" Version="0.0.1-alpha" />
+    <PackageVersion Include="Tamp.Core" Version="1.0.0" />
   </ItemGroup>
 
 </Project>
