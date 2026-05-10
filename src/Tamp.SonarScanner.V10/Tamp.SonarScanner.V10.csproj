@@ -8,7 +8,6 @@
 
   <PropertyGroup Label="Package">
     <PackageId>Tamp.SonarScanner.V10</PackageId>
-    <Version>0.0.1-alpha</Version>
     <Description>Tamp wrapper for SonarScanner for .NET (the dotnet-sonarscanner global tool, current major v10). Two-phase begin/end invocation around the build, command-line driven (no properties file). For non-.NET projects that use the Java CLI instead, see Tamp.SonarScannerCli.V6.</Description>
     <IsPackable>true</IsPackable>
   </PropertyGroup>
