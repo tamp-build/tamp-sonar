@@ -65,12 +65,16 @@ class Build : TampBuild
                 .SetConfiguration(Configuration)
                 .SetNoBuild(true)
                 .AddLogger("trx;LogFileName=sonarscanner-v10.trx")
+                .AddDataCollector("XPlat Code Coverage")
+                .SetSettings((RootDirectory / "build" / "coverlet.runsettings").Value)
                 .SetResultsDirectory(Artifacts / "test-results")),
             DotNet.Test(s => s
                 .SetProject(RootDirectory / "tests" / "Tamp.SonarScannerCli.V6.Tests" / "Tamp.SonarScannerCli.V6.Tests.csproj")
                 .SetConfiguration(Configuration)
                 .SetNoBuild(true)
                 .AddLogger("trx;LogFileName=sonarscannercli-v6.trx")
+                .AddDataCollector("XPlat Code Coverage")
+                .SetSettings((RootDirectory / "build" / "coverlet.runsettings").Value)
                 .SetResultsDirectory(Artifacts / "test-results")),
         });
 
@@ -142,6 +146,10 @@ class Build : TampBuild
             s.SetHostUrl(SonarHostUrl);
             s.SetToken(SonarToken!);
             s.SetProperty("sonar.cs.vstest.reportsPaths", $"{(Artifacts / "test-results").Value}/**/*.trx");
+            s.SetProperty("sonar.cs.opencover.reportsPaths", $"{(Artifacts / "test-results").Value}/**/coverage.opencover.xml");
+
+            s.SetProperty("sonar.coverage.exclusions", "tests/**,build/**,samples/**");
+
             s.SetProperty("sonar.exclusions", "**/bin/**,**/obj/**,artifacts/**,build/**,docs/**,samples/**");
         }));
 
