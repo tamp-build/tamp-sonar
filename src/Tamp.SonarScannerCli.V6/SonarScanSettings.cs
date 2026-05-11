@@ -55,6 +55,23 @@ public sealed class SonarScanSettings
     /// <summary>Additional environment variables. SONAR_TOKEN / SONAR_HOST_URL are honoured by the scanner natively.</summary>
     public Dictionary<string, string> EnvironmentVariables { get; } = new();
 
+    /// <summary>
+    /// Targeting a SonarQube Community Edition server (or self-hosted CE).
+    ///
+    /// <para>CE rejects ANY <c>sonar.branch.name</c> with <c>"Validation
+    /// of project failed: Developer Edition or above is required"</c>.
+    /// When this flag is set, <see cref="SonarScannerCli.Scan"/>:</para>
+    /// <list type="bullet">
+    ///   <item>Strips <c>sonar.branch.name</c> + <c>sonar.branch.target</c> from inherited <c>SONARQUBE_SCANNER_PARAMS</c> (the ADO SonarSource extension injects them; the Java scanner inherits the env in the same job context).</item>
+    ///   <item>Drops the forbidden properties from <see cref="AdditionalProperties"/> if the caller set them by mistake.</item>
+    /// </list>
+    ///
+    /// <para>Unlike the .NET scanner (<c>Tamp.SonarScanner.V10</c>), the
+    /// Java CLI scanner doesn't write a <c>SonarQubeAnalysisConfig.xml</c>
+    /// file, so no on-disk cleanup is needed.</para>
+    /// </summary>
+    public bool CommunityEdition { get; set; }
+
     public SonarScanSettings SetProjectKey(string? key) { ProjectKey = key; return this; }
     public SonarScanSettings SetHostUrl(string? url) { HostUrl = url; return this; }
     public SonarScanSettings SetToken(Secret token) { Token = token; return this; }
@@ -64,4 +81,10 @@ public sealed class SonarScanSettings
     public SonarScanSettings SetPropertiesFile(string? path) { PropertiesFile = path; return this; }
     public SonarScanSettings SetProperty(string name, string value) { AdditionalProperties[name] = value; return this; }
     public SonarScanSettings SetWorkingDirectory(string? cwd) { WorkingDirectory = cwd; return this; }
+
+    /// <summary>Mark the target server as SonarQube Community Edition. See <see cref="CommunityEdition"/>.</summary>
+    public SonarScanSettings SetCommunityEdition(bool v = true) { CommunityEdition = v; return this; }
+
+    /// <summary>Alias for <see cref="SetCommunityEdition"/> with a name that describes the effect rather than the cause.</summary>
+    public SonarScanSettings DisableBranchProperties(bool v = true) { CommunityEdition = v; return this; }
 }

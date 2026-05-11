@@ -33,6 +33,25 @@ public sealed class SonarBeginSettings
     /// <summary>Enable verbose scanner logging (<c>/d:sonar.verbose=true</c>).</summary>
     public bool Verbose { get; set; }
 
+    /// <summary>
+    /// Targeting a SonarQube Community Edition server (or self-hosted CE).
+    ///
+    /// <para>CE rejects ANY <c>sonar.branch.name</c> with <c>"Validation
+    /// of project failed: Developer Edition or above is required"</c>.
+    /// When this flag is set, <see cref="SonarScanner.Begin"/>:</para>
+    /// <list type="bullet">
+    ///   <item>Strips <c>sonar.branch.name</c> + <c>sonar.branch.target</c> from inherited <c>SONARQUBE_SCANNER_PARAMS</c> (ADO SonarSource extension auto-injects them).</item>
+    ///   <item>Does NOT add the properties to the scanner argv.</item>
+    /// </list>
+    ///
+    /// <para>Note: this flag covers the env-var path. The .NET scanner
+    /// also writes <c>SonarQubeAnalysisConfig.xml</c> on disk during
+    /// the begin phase, which holds the same properties. To strip
+    /// those, run <see cref="SonarScanner.StripBranchPropertiesFromAnalysisConfigXml"/>
+    /// in a target between Begin and Compile.</para>
+    /// </summary>
+    public bool CommunityEdition { get; set; }
+
     /// <summary>Free-form additional properties (<c>sonar.exclusions</c>, coverage report paths, etc.). Each emits as <c>/d:key=value</c>.</summary>
     public Dictionary<string, string> AdditionalProperties { get; } = new();
 
@@ -52,4 +71,10 @@ public sealed class SonarBeginSettings
     public SonarBeginSettings SetVerbose(bool v) { Verbose = v; return this; }
     public SonarBeginSettings SetProperty(string name, string value) { AdditionalProperties[name] = value; return this; }
     public SonarBeginSettings SetWorkingDirectory(string? cwd) { WorkingDirectory = cwd; return this; }
+
+    /// <summary>Mark the target server as SonarQube Community Edition. See <see cref="CommunityEdition"/>.</summary>
+    public SonarBeginSettings SetCommunityEdition(bool v = true) { CommunityEdition = v; return this; }
+
+    /// <summary>Alias for <see cref="SetCommunityEdition"/> with a name that describes the effect instead of the cause. Useful for non-CE servers that still want to strip branch properties (e.g. project setup where branch detection isn't ready).</summary>
+    public SonarBeginSettings DisableBranchProperties(bool v = true) { CommunityEdition = v; return this; }
 }

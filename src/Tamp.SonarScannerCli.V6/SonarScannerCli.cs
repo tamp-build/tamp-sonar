@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Tamp.SonarScannerCli.V6;
 
 /// <summary>
@@ -21,6 +23,13 @@ namespace Tamp.SonarScannerCli.V6;
 /// </remarks>
 public static class SonarScannerCli
 {
+    /// <summary>Sonar properties that SonarQube Community Edition rejects with "Developer Edition or above is required".</summary>
+    internal static readonly string[] CommunityEditionForbiddenProperties =
+    {
+        "sonar.branch.name",
+        "sonar.branch.target",
+    };
+
     /// <summary>
     /// Build a <c>sonar-scanner</c> command plan. Pass an empty
     /// configurer (or <c>null</c>) to run with whatever's in the
@@ -43,15 +52,62 @@ public static class SonarScannerCli
         if (!string.IsNullOrEmpty(s.Sources)) args.Add($"-Dsonar.sources={s.Sources}");
         if (!string.IsNullOrEmpty(s.PropertiesFile)) args.Add($"-Dproject.settings={s.PropertiesFile}");
         foreach (var (k, v) in s.AdditionalProperties)
+        {
+            // Belt-and-braces: if the caller set CommunityEdition AND
+            // a forbidden property, drop the property silently.
+            if (s.CommunityEdition && CommunityEditionForbiddenProperties.Contains(k)) continue;
             args.Add($"-D{k}={v}");
+        }
+
+        var env = new Dictionary<string, string>(s.EnvironmentVariables);
+        if (s.CommunityEdition)
+            ApplyCommunityEditionEnvCleanup(env);
 
         return new CommandPlan
         {
             Executable = tool.Executable.Value,
             Arguments = args,
-            Environment = new Dictionary<string, string>(s.EnvironmentVariables),
+            Environment = env,
             WorkingDirectory = s.WorkingDirectory ?? tool.WorkingDirectory,
             Secrets = s.Token is null ? Array.Empty<Secret>() : new[] { s.Token },
         };
+    }
+
+    private static void ApplyCommunityEditionEnvCleanup(Dictionary<string, string> env)
+    {
+        // The ADO SonarSource extension (SonarQubePrepare@8) writes a
+        // JSON blob to SONARQUBE_SCANNER_PARAMS during its task setup.
+        // The Java CLI scanner reads this env var the same way the .NET
+        // scanner does, so CE chokes the same way.
+        const string EnvVar = "SONARQUBE_SCANNER_PARAMS";
+        var source = env.TryGetValue(EnvVar, out var explicitValue)
+            ? explicitValue
+            : Environment.GetEnvironmentVariable(EnvVar);
+
+        if (string.IsNullOrEmpty(source))
+        {
+            env[EnvVar] = "{}";
+            return;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(source);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object) return;
+
+            var cleaned = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var prop in doc.RootElement.EnumerateObject())
+            {
+                if (CommunityEditionForbiddenProperties.Contains(prop.Name)) continue;
+                if (prop.Value.ValueKind == JsonValueKind.String)
+                    cleaned[prop.Name] = prop.Value.GetString() ?? string.Empty;
+            }
+            env[EnvVar] = JsonSerializer.Serialize(cleaned);
+        }
+        catch (JsonException)
+        {
+            // Inherited env wasn't valid JSON. Leave it alone — the
+            // scanner will reject it on its own terms.
+        }
     }
 }
