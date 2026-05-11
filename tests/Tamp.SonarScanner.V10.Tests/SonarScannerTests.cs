@@ -24,7 +24,7 @@ public sealed class SonarScannerTests
     [Fact]
     public void Begin_Throws_On_Null_Configurer()
     {
-        Assert.Throws<ArgumentNullException>(() => SonarScanner.Begin(FakeTool(), null!));
+        Assert.Throws<ArgumentNullException>(() => SonarScanner.Begin(FakeTool(), (Action<SonarBeginSettings>)null!));
     }
 
     [Fact]

@@ -41,38 +41,7 @@ public static class SonarScanner
 
         var s = new SonarBeginSettings();
         configure(s);
-
-        if (string.IsNullOrEmpty(s.ProjectKey))
-            throw new InvalidOperationException("SonarScanner.Begin requires ProjectKey.");
-
-        var args = new List<string> { "begin", $"/k:{s.ProjectKey}" };
-        if (!string.IsNullOrEmpty(s.ProjectName)) args.Add($"/n:{s.ProjectName}");
-        if (!string.IsNullOrEmpty(s.ProjectVersion)) args.Add($"/v:{s.ProjectVersion}");
-        if (!string.IsNullOrEmpty(s.Organization)) args.Add($"/o:{s.Organization}");
-        if (!string.IsNullOrEmpty(s.AnalysisXml)) args.Add($"/s:{s.AnalysisXml}");
-        if (!string.IsNullOrEmpty(s.HostUrl)) args.Add($"/d:sonar.host.url={s.HostUrl}");
-        if (s.Token is { } t) args.Add($"/d:sonar.token={t.Reveal()}");
-        if (s.Verbose) args.Add("/d:sonar.verbose=true");
-        foreach (var (k, v) in s.AdditionalProperties)
-        {
-            // Belt-and-braces: if the caller set CommunityEdition AND
-            // a forbidden property, drop the property silently.
-            if (s.CommunityEdition && CommunityEditionForbiddenProperties.Contains(k)) continue;
-            args.Add($"/d:{k}={v}");
-        }
-
-        var env = new Dictionary<string, string>(s.EnvironmentVariables);
-        if (s.CommunityEdition)
-            ApplyCommunityEditionEnvCleanup(env);
-
-        return new CommandPlan
-        {
-            Executable = tool.Executable.Value,
-            Arguments = args,
-            Environment = env,
-            WorkingDirectory = s.WorkingDirectory ?? tool.WorkingDirectory,
-            Secrets = s.Token is null ? Array.Empty<Secret>() : new[] { s.Token },
-        };
+        return s.ToCommandPlan(tool);
     }
 
     /// <summary>Build the <c>end</c> phase command plan.</summary>
@@ -81,20 +50,7 @@ public static class SonarScanner
         if (tool is null) throw new ArgumentNullException(nameof(tool));
         var s = new SonarEndSettings();
         configure?.Invoke(s);
-
-        var args = new List<string> { "end" };
-        if (s.Token is { } t) args.Add($"/d:sonar.token={t.Reveal()}");
-        foreach (var (k, v) in s.AdditionalProperties)
-            args.Add($"/d:{k}={v}");
-
-        return new CommandPlan
-        {
-            Executable = tool.Executable.Value,
-            Arguments = args,
-            Environment = new Dictionary<string, string>(s.EnvironmentVariables),
-            WorkingDirectory = s.WorkingDirectory ?? tool.WorkingDirectory,
-            Secrets = s.Token is null ? Array.Empty<Secret>() : new[] { s.Token },
-        };
+        return s.ToCommandPlan(tool);
     }
 
     /// <summary>
@@ -174,7 +130,7 @@ public static class SonarScanner
         return count;
     }
 
-    private static void ApplyCommunityEditionEnvCleanup(Dictionary<string, string> env)
+    internal static void ApplyCommunityEditionEnvCleanup(Dictionary<string, string> env)
     {
         // The ADO SonarSource extension (SonarQubePrepare@8) writes a
         // JSON blob to SONARQUBE_SCANNER_PARAMS during its task setup.
@@ -218,4 +174,18 @@ public static class SonarScanner
             // alone — the scanner will reject it on its own terms.
         }
     }
+
+    // ---- Object-init overloads (0.3.1+, TAM-161) ----
+    // Two equivalent authoring styles; both produce identical CommandPlans. Fluent
+    // stays canonical in docs and `tamp init` templates; object-init available for
+    // consumers who prefer the C# initializer shape.
+    //
+    //     SonarScanner.Begin(Sonar, new() { ProjectKey = "acme:lib", HostUrl = "https://sq" });
+    //
+    // is equivalent to:
+    //
+    //     SonarScanner.Begin(Sonar, s => s.SetProjectKey("acme:lib").SetHostUrl("https://sq"));
+
+    public static CommandPlan Begin(Tool tool, SonarBeginSettings settings) => settings.ToCommandPlan(tool);
+    public static CommandPlan End(Tool tool, SonarEndSettings settings) => settings.ToCommandPlan(tool);
 }

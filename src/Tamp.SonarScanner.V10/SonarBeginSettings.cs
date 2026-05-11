@@ -77,4 +77,47 @@ public sealed class SonarBeginSettings
 
     /// <summary>Alias for <see cref="SetCommunityEdition"/> with a name that describes the effect instead of the cause. Useful for non-CE servers that still want to strip branch properties (e.g. project setup where branch detection isn't ready).</summary>
     public SonarBeginSettings DisableBranchProperties(bool v = true) { CommunityEdition = v; return this; }
+
+    /// <summary>
+    /// Materialise this settings object into a <see cref="CommandPlan"/> for the begin phase.
+    /// Powers both the fluent <see cref="SonarScanner.Begin(Tool, Action{SonarBeginSettings})"/>
+    /// overload and the object-init <see cref="SonarScanner.Begin(Tool, SonarBeginSettings)"/>
+    /// overload — identical output for either authoring style.
+    /// </summary>
+    internal CommandPlan ToCommandPlan(Tool tool)
+    {
+        if (tool is null) throw new ArgumentNullException(nameof(tool));
+
+        if (string.IsNullOrEmpty(ProjectKey))
+            throw new InvalidOperationException("SonarScanner.Begin requires ProjectKey.");
+
+        var args = new List<string> { "begin", $"/k:{ProjectKey}" };
+        if (!string.IsNullOrEmpty(ProjectName)) args.Add($"/n:{ProjectName}");
+        if (!string.IsNullOrEmpty(ProjectVersion)) args.Add($"/v:{ProjectVersion}");
+        if (!string.IsNullOrEmpty(Organization)) args.Add($"/o:{Organization}");
+        if (!string.IsNullOrEmpty(AnalysisXml)) args.Add($"/s:{AnalysisXml}");
+        if (!string.IsNullOrEmpty(HostUrl)) args.Add($"/d:sonar.host.url={HostUrl}");
+        if (Token is { } t) args.Add($"/d:sonar.token={t.Reveal()}");
+        if (Verbose) args.Add("/d:sonar.verbose=true");
+        foreach (var (k, v) in AdditionalProperties)
+        {
+            // Belt-and-braces: if the caller set CommunityEdition AND
+            // a forbidden property, drop the property silently.
+            if (CommunityEdition && SonarScanner.CommunityEditionForbiddenProperties.Contains(k)) continue;
+            args.Add($"/d:{k}={v}");
+        }
+
+        var env = new Dictionary<string, string>(EnvironmentVariables);
+        if (CommunityEdition)
+            SonarScanner.ApplyCommunityEditionEnvCleanup(env);
+
+        return new CommandPlan
+        {
+            Executable = tool.Executable.Value,
+            Arguments = args,
+            Environment = env,
+            WorkingDirectory = WorkingDirectory ?? tool.WorkingDirectory,
+            Secrets = Token is null ? Array.Empty<Secret>() : new[] { Token },
+        };
+    }
 }
