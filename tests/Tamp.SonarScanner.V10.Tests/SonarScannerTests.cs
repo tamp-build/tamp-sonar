@@ -36,8 +36,13 @@ public sealed class SonarScannerTests
     [Fact]
     public void Begin_Minimal_ProjectKey_Only()
     {
-        var plan = SonarScanner.Begin(FakeTool(), s => s.SetProjectKey("my-project"));
-        Assert.Equal("/fake/dotnet-sonarscanner", plan.Executable);
+        // Compare through tool.Executable.Value rather than the literal
+        // "/fake/dotnet-sonarscanner" — Windows's Path.GetFullPath
+        // rewrites POSIX paths to drive-rooted (D:\fake\...). Same
+        // gotcha as TAM-84 fixed for DotNetCoverage.
+        var tool = FakeTool();
+        var plan = SonarScanner.Begin(tool, s => s.SetProjectKey("my-project"));
+        Assert.Equal(tool.Executable.Value, plan.Executable);
         Assert.Equal(["begin", "/k:my-project"], plan.Arguments);
         Assert.Empty(plan.Secrets);
     }

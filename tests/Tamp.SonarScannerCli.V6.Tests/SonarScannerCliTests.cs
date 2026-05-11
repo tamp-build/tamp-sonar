@@ -25,8 +25,11 @@ public sealed class SonarScannerCliTests
     [Fact]
     public void Scan_Executable_Is_The_Tool_Path()
     {
-        var plan = SonarScannerCli.Scan(FakeTool());
-        Assert.Equal("/fake/sonar-scanner", plan.Executable);
+        // Compare through tool.Executable.Value rather than a literal
+        // POSIX path — Windows's Path.GetFullPath rewrites to drive-rooted.
+        var tool = FakeTool();
+        var plan = SonarScannerCli.Scan(tool);
+        Assert.Equal(tool.Executable.Value, plan.Executable);
     }
 
     [Fact]
