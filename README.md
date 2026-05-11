@@ -160,6 +160,63 @@ Both settings expose `DisableBranchProperties()` as an alias for
 non-CE server but still want to skip branch detection (e.g. project
 setup before branch metadata is ready).
 
+### Compute-engine stall diagnostic (V10, 0.3.0+)
+
+SonarQube CE has a known bug where the compute engine occasionally
+wedges with an `IllegalArgumentException: Execution time must be
+positive: -NNN` in `CeWorkerImpl.finalize` — a clock-arithmetic
+glitch. The scanner client sees the analysis task transition to
+`CANCELED` and exits non-zero, but the message is generic and easy
+to miss in a long CI log. Cure: `docker restart <sonarqube>` and
+re-run.
+
+`SonarComputeEngineDiagnostic.Inspect(...)` looks at the End-phase
+exit code + stdout / stderr and surfaces a typed verdict:
+
+```csharp
+Target Analyze => _ => _.Executes(() =>
+{
+    var begin = SonarScanner.Begin(SonarTool, s => s
+        .SetProjectKey(SonarProjectKey)
+        .SetHostUrl(SonarHostUrl)
+        .SetToken(SonarToken)
+        .SetCommunityEdition(true));
+    ProcessRunner.Execute(begin).Should().Be(0);
+
+    DotNet.Build(s => s.SetProject(Solution.Path));
+
+    var end = SonarScanner.End(SonarTool, s => s.SetToken(SonarToken));
+    var endResult = ProcessRunner.Capture(end);
+
+    if (endResult.Failed)
+    {
+        var diag = SonarComputeEngineDiagnostic.Inspect(endResult);
+        if (diag.ComputeEngineStallDetected)
+        {
+            Log.Error(diag.ActionableHint);
+            // Optional: retry once after a docker restart hook
+        }
+        throw new Exception($"Sonar End failed (exit {endResult.ExitCode})");
+    }
+});
+```
+
+Or use it for conditional retry logic:
+
+```csharp
+.OnlyWhen(() => !SonarComputeEngineDiagnostic.Inspect(lastEndResult)
+                  .ComputeEngineStallDetected)
+```
+
+Detection is text-pattern-based — looks for `"Task failed with status
+CANCELED"`, `"Background task failed with status CANCELED"`, and
+`"ANALYSIS_REPORT ... CANCELED"`. The actual `CeWorkerImpl` stack
+trace lives in the SQ server log, not the scanner client output, so
+this helper does NOT poll the SQ API for the task's real status.
+False negatives are possible if SonarQube changes its messaging;
+false positives are unlikely because the `CANCELED` task status is
+specific to the compute engine.
+
 ## See also
 
 - [tamp](https://github.com/tamp-build/tamp) — the core framework
