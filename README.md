@@ -222,6 +222,12 @@ specific to the compute engine.
 - [tamp](https://github.com/tamp-build/tamp) — the core framework
 - [Tamp ADR 0002](https://github.com/tamp-build/tamp/blob/main/docs/adr/0002-package-naming-convention.md) — package naming convention
 
+## Settings authoring style
+
+Examples above use the fluent `Set*`-chain shape. Every wrapper verb also accepts a `new XxxSettings { ... }` object-init form — both produce identical `CommandPlan`s. The fluent shape stays canonical in docs and the `tamp init` template; opt into object-init scaffolding via `tamp init --settings-style=init`.
+
+See [Build Script Authoring → Two authoring styles](https://github.com/tamp-build/tamp/wiki/Build-Script-Authoring#two-authoring-styles-for-wrapper-calls-120) on the wiki for the side-by-side comparison.
+
 ## License
 
 [MIT](LICENSE) — same as `tamp` core. (Sonar tools themselves are LGPL/various.)
