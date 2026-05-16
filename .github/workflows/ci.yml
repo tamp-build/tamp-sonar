@@ -26,6 +26,9 @@ jobs:
       # NOT the sibling-clone ProjectReference. Matches what release.yml
       # does so test-time and pack-time wire to the same Tamp.Core binary.
       TampCoreMode: package
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      TELEGRAM_BUILD_LABEL: tamp-sonar
 
     steps:
       - name: Checkout
