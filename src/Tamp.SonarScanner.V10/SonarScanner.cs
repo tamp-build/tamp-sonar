@@ -5,9 +5,9 @@ namespace Tamp.SonarScanner.V10;
 
 /// <summary>
 /// Wrapper for SonarScanner for .NET (the <c>dotnet-sonarscanner</c>
-/// global tool, current major v10). Two-phase invocation: <see cref="Begin"/>
+/// global tool, current major v10). Two-phase invocation: <c>Begin</c>
 /// before the build, the build runs (where the scanner instruments
-/// MSBuild), then <see cref="End"/> uploads results to the Sonar server.
+/// MSBuild), then <c>End</c> uploads results to the Sonar server.
 /// </summary>
 /// <remarks>
 /// Resolve the tool via <see cref="NuGetPackageAttribute"/> on the build
@@ -56,7 +56,7 @@ public static class SonarScanner
     /// <summary>
     /// Strip <c>sonar.branch.name</c> and <c>sonar.branch.target</c> from
     /// the <c>SonarQubeAnalysisConfig.xml</c> file the .NET scanner
-    /// writes during <see cref="Begin"/>.
+    /// writes during <c>Begin</c>.
     ///
     /// <para>Necessary for SonarQube Community Edition pipelines where
     /// the ADO SonarSource extension auto-injects these properties via
