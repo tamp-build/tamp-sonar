@@ -38,7 +38,7 @@ public sealed class SonarBeginSettings
     ///
     /// <para>CE rejects ANY <c>sonar.branch.name</c> with <c>"Validation
     /// of project failed: Developer Edition or above is required"</c>.
-    /// When this flag is set, <see cref="SonarScanner.Begin"/>:</para>
+    /// When this flag is set, <c>SonarScanner.Begin</c>:</para>
     /// <list type="bullet">
     ///   <item>Strips <c>sonar.branch.name</c> + <c>sonar.branch.target</c> from inherited <c>SONARQUBE_SCANNER_PARAMS</c> (ADO SonarSource extension auto-injects them).</item>
     ///   <item>Does NOT add the properties to the scanner argv.</item>

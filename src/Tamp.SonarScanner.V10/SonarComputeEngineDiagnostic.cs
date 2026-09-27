@@ -101,7 +101,7 @@ public static class SonarComputeEngineDiagnostic
 
     /// <summary>
     /// Inspects a <see cref="CaptureResult"/> from <c>ProcessRunner.Capture</c> wrapping a
-    /// <see cref="SonarScanner.End"/> CommandPlan.
+    /// <c>SonarScanner.End</c> CommandPlan.
     /// </summary>
     public static SonarPublishDiagnostic Inspect(CaptureResult endResult)
     {
