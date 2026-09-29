@@ -1,13 +1,15 @@
 using Tamp;
 using Tamp.NetCli.V10;
 using Tamp.Telegram;
+using Tamp.Components;
+using Tamp.Components.NetCli.V10;
 
 /// <summary>
 /// tamp-sonar's self-hosted build script. Packs both
 /// Tamp.SonarScanner.V10 (.NET tool) and Tamp.SonarScannerCli.V6
 /// (Java CLI) — two separate scanners from the same SonarSource family.
 /// </summary>
-class Build : TampBuild
+class Build : TampBuild, IDotNetPack
 {
     public static int Main(string[] args) => Execute<Build>(args);
 
@@ -18,14 +20,10 @@ class Build : TampBuild
         TelegramBuildReporter.FromEnvironment();
 
     [Parameter("Build configuration")]
-    Configuration Configuration = IsLocalBuild ? Configuration.Debug : Configuration.Release;
+    public Configuration Configuration { get; set; } = IsLocalBuild ? Configuration.Debug : Configuration.Release;
 
-    [Parameter("Package version override", EnvironmentVariable = "PACKAGE_VERSION")]
-#pragma warning disable CS0649
-    readonly string? Version;
-#pragma warning restore CS0649
 
-    [Solution] readonly Solution Solution = null!;
+    [Solution] public Solution Solution { get; set; } = null!;
     [GitRepository] readonly GitRepository Git = null!;
 
     // Bound by SecretBinder from NUGET_API_KEY env var (TAM-78,
@@ -38,6 +36,8 @@ class Build : TampBuild
 
     AbsolutePath Artifacts => RootDirectory / "artifacts";
 
+    public AbsolutePath ArtifactsDirectory => Artifacts;
+
     Target Info => _ => _.Executes(() =>
     {
         Console.WriteLine($"  Branch:        {Git.Branch ?? "<detached>"}");
@@ -49,18 +49,8 @@ class Build : TampBuild
         .Description("Delete bin/obj and the artifacts directory.")
         .Executes(() => CleanArtifacts());
 
-    Target Restore => _ => _
-        .Executes(() => DotNet.Restore(s => s.SetProject(Solution.Path)));
-
-    Target Compile => _ => _
-        .DependsOn(nameof(Restore))
-        .Executes(() => DotNet.Build(s => s
-            .SetProject(Solution.Path)
-            .SetConfiguration(Configuration)
-            .SetNoRestore(true)));
-
     Target Test => _ => _
-        .DependsOn(nameof(Compile))
+        .DependsOn(nameof(ICompile.Compile))
         .Executes(() => new[]
         {
             DotNet.Test(s => s
@@ -81,31 +71,8 @@ class Build : TampBuild
                 .SetResultsDirectory(Artifacts / "test-results")),
         });
 
-    Target Pack => _ => _
-        .DependsOn(nameof(Test))
-        .Description("Pack both Sonar wrapper packages.")
-        .Executes(() => new[]
-        {
-            DotNet.Pack(s =>
-            {
-                s.SetProject(RootDirectory / "src" / "Tamp.SonarScanner.V10" / "Tamp.SonarScanner.V10.csproj");
-                s.SetConfiguration(Configuration);
-                s.SetNoBuild(true);
-                s.SetOutput(Artifacts);
-                if (!string.IsNullOrEmpty(Version)) s.SetProperty("Version", Version);
-            }),
-            DotNet.Pack(s =>
-            {
-                s.SetProject(RootDirectory / "src" / "Tamp.SonarScannerCli.V6" / "Tamp.SonarScannerCli.V6.csproj");
-                s.SetConfiguration(Configuration);
-                s.SetNoBuild(true);
-                s.SetOutput(Artifacts);
-                if (!string.IsNullOrEmpty(Version)) s.SetProperty("Version", Version);
-            }),
-        });
-
     Target Push => _ => _
-        .DependsOn(nameof(Pack))
+        .DependsOn(nameof(IPack.Pack))
         .Requires(() => NuGetApiKey != null)
         .Executes(() => Artifacts.GlobFiles("*.nupkg")
             .Select(p => DotNet.NuGetPush(s => s
@@ -115,10 +82,10 @@ class Build : TampBuild
                 .SetSkipDuplicate(true))));
 
     Target Ci => _ => _
-        .DependsOn(nameof(Info), nameof(Clean), nameof(Pack))
+        .DependsOn(nameof(Info), nameof(Clean), nameof(Test), nameof(IPack.Pack))
         .Description("Full CI pipeline.");
 
-    Target Default => _ => _.DependsOn(nameof(Compile));
+    Target Default => _ => _.DependsOn(nameof(ICompile.Compile));
 
     // ----- Sonar (TAM-17) -----
 
@@ -139,7 +106,7 @@ class Build : TampBuild
 
     Target SonarBegin => _ => _
         .Description("Initialize the SonarScanner pre-build phase.")
-        .Before(nameof(Compile))
+        .Before(nameof(ICompile.Compile))
         .Requires(() => SonarToken != null)
         .Executes(() => Tamp.SonarScanner.V10.SonarScanner.Begin(SonarTool, s =>
         {
